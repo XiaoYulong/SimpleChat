@@ -44,52 +44,6 @@ static int chatInputStartingHeight = 40;
 {
     self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
     if (self) {
-        // Custom initialization
-        self.view.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
-        
-        // TopBar
-        _topBar = [[TopBar alloc]init];
-        _topBar.title = @"Chat Controller";
-        _topBar.backgroundColor = [UIColor colorWithWhite:1 alpha:0.5];
-        _topBar.delegate = self;
-        
-        // ChatInput
-        _chatInput = [[ChatInput alloc]init];
-        _chatInput.stopAutoClose = NO;
-        _chatInput.placeholderLabel.text = @"  Send A Message";
-        _chatInput.delegate = self;
-        _chatInput.backgroundColor = [UIColor colorWithWhite:1 alpha:0.825f];
-        
-        // Set Up Flow Layout
-        UICollectionViewFlowLayout * flow = [[UICollectionViewFlowLayout alloc]init];
-        flow.sectionInset = UIEdgeInsetsMake(80, 0, 10, 0);
-        flow.scrollDirection = UICollectionViewScrollDirectionVertical;
-        flow.minimumLineSpacing = 6;
-        
-        // Set Up CollectionView
-        CGRect myFrame = (UIInterfaceOrientationIsLandscape([[UIApplication sharedApplication]statusBarOrientation])) ? CGRectMake(0, 0, ScreenHeight(), ScreenWidth() - height(_chatInput)) : CGRectMake(0, 0, ScreenWidth(), ScreenHeight() - height(_chatInput));
-        _myCollectionView = [[UICollectionView alloc]initWithFrame:myFrame collectionViewLayout:flow];
-        //_myCollectionView.contentInset = UIEdgeInsetsMake(0, 0, 0, 0);
-        _myCollectionView.backgroundColor = [UIColor whiteColor];
-        _myCollectionView.delegate = self;
-        _myCollectionView.dataSource = self;
-        _myCollectionView.indicatorStyle = UIScrollViewIndicatorStyleDefault;
-        _myCollectionView.scrollIndicatorInsets = UIEdgeInsetsMake(0, 2, 0, -2);
-        _myCollectionView.allowsSelection = YES;
-        _myCollectionView.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
-        [_myCollectionView registerClass:[MessageCell class]
-              forCellWithReuseIdentifier:kMessageCellReuseIdentifier];
-        
-        // Register Keyboard Notifications
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(keyboardWillShow:)
-                                                     name:UIKeyboardWillShowNotification
-                                                   object:nil];
-        
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(keyboardWillHide:)
-                                                     name:UIKeyboardWillHideNotification
-                                                   object:nil];
     }
     return self;
 }
@@ -98,17 +52,86 @@ static int chatInputStartingHeight = 40;
 {
     [super viewDidLoad];
 	// Do any additional setup after loading the view.
+    
+    // Custom initialization
+    self.view.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
+    
+    // TopBar
+    if (!_isNavigationControllerVersion) {
+        _topBar = [[TopBar alloc]init];
+        _topBar.title = @"Chat Controller";
+        _topBar.backgroundColor = [UIColor colorWithWhite:1 alpha:0.5];
+        _topBar.delegate = self;
+    }
+    else {
+        if (_chatTitle) {
+            self.title = _chatTitle;
+        }
+        else {
+            self.title = @"Chat Controller";
+        }
+    }
+    
+    // ChatInput
+    _chatInput = [[ChatInput alloc]init];
+    _chatInput.stopAutoClose = NO;
+    _chatInput.placeholderLabel.text = @"  Send A Message";
+    _chatInput.delegate = self;
+    _chatInput.backgroundColor = [UIColor colorWithWhite:1 alpha:0.825f];
+    
+    // Set Up Flow Layout
+    UICollectionViewFlowLayout * flow = [[UICollectionViewFlowLayout alloc]init];
+    
+    int topOffset = 10;
+    CGFloat topInset = CGRectGetHeight(_topBar.frame) + topOffset;
+    if (_isNavigationControllerVersion) {
+        CGRect navBarFrame = self.navigationController.navigationBar.frame;
+        topInset = CGRectGetHeight(navBarFrame) + CGRectGetMinY(navBarFrame) + topOffset;
+    }
+    UIEdgeInsets edgeInsets = UIEdgeInsetsMake(topInset, 0, 10, 0);
+    
+    flow.sectionInset = edgeInsets;
+    flow.scrollDirection = UICollectionViewScrollDirectionVertical;
+    flow.minimumLineSpacing = 6;
+    
+    // Set Up CollectionView Frame
+    CGRect myFrame = (UIInterfaceOrientationIsLandscape([[UIApplication sharedApplication]statusBarOrientation])) ? CGRectMake(0, 0, ScreenHeight(), ScreenWidth() - height(_chatInput)) : CGRectMake(0, 0, ScreenWidth(), ScreenHeight() - height(_chatInput));
+    
+    // Set Up CollectionView
+    _myCollectionView = [[UICollectionView alloc]initWithFrame:myFrame collectionViewLayout:flow];
+    //_myCollectionView.contentInset = UIEdgeInsetsMake(0, 0, 0, 0);
+    _myCollectionView.backgroundColor = [UIColor whiteColor];
+    _myCollectionView.delegate = self;
+    _myCollectionView.dataSource = self;
+    _myCollectionView.indicatorStyle = UIScrollViewIndicatorStyleDefault;
+    _myCollectionView.scrollIndicatorInsets = UIEdgeInsetsMake(0, 2, 0, -2);
+    _myCollectionView.allowsSelection = YES;
+    _myCollectionView.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
+    [_myCollectionView registerClass:[MessageCell class]
+          forCellWithReuseIdentifier:kMessageCellReuseIdentifier];
+    
+    // Register Keyboard Notifications
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(keyboardWillShow:)
+                                                 name:UIKeyboardWillShowNotification
+                                               object:nil];
+    
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(keyboardWillHide:)
+                                                 name:UIKeyboardWillHideNotification
+                                               object:nil];
 }
 
 - (void) viewWillAppear:(BOOL)animated
 {
-    
     // Add views here, or they will create problems when launching in landscape
     
     [self.view addSubview:_myCollectionView];
     [self scrollToBottom];
     
-    [self.view addSubview:_topBar];
+    if (!_isNavigationControllerVersion) {
+        [self.view addSubview:_topBar];
+    }
     
     // Scroll CollectionView Before We Start
     [self.view addSubview:_chatInput];
@@ -175,6 +198,7 @@ static int chatInputStartingHeight = 40;
     else {
         NSLog(@"ChatController: ** DELEGATE OR PROTOCOL METHOD NOT SET ** ");
     }
+    
 }
 
 #pragma mark TOP BAR DELEGATE
@@ -218,7 +242,6 @@ static int chatInputStartingHeight = 40;
 - (void) keyboardWillShow:(NSNotification *)note {
     
     if (!_chatInput.shouldIgnoreKeyboardNotifications) {
-        
         NSDictionary *keyboardAnimationDetail = [note userInfo];
         UIViewAnimationCurve animationCurve = [keyboardAnimationDetail[UIKeyboardAnimationCurveUserInfoKey] integerValue];
         CGFloat duration = [keyboardAnimationDetail[UIKeyboardAnimationDurationUserInfoKey] floatValue];
@@ -235,13 +258,13 @@ static int chatInputStartingHeight = 40;
             
         } completion:^(BOOL finished) {
             if (finished) {
-                
                 [self scrollToBottom];
                 _myCollectionView.scrollEnabled = YES;
                 _myCollectionView.decelerationRate = UIScrollViewDecelerationRateNormal;
             }
         }];
     }
+    
 }
 
 - (void) keyboardWillHide:(NSNotification *)note {
@@ -282,9 +305,22 @@ static int chatInputStartingHeight = 40;
         
         offlineStatus.text = @"You're offline! Messages may not send.";
         offlineStatus.tag = connectionStatusViewTag;
-        [self.view insertSubview:offlineStatus belowSubview:_topBar];
+        
+        
+        CGFloat height;
+        if (!_isNavigationControllerVersion) {
+            [self.view insertSubview:offlineStatus belowSubview:_topBar];
+            height = CGRectGetHeight(_topBar.frame);
+        }
+        else {
+            [self.view insertSubview:offlineStatus belowSubview:self.navigationController.navigationBar];
+            
+            CGRect navBarFrame = self.navigationController.navigationBar.frame;
+            height = CGRectGetHeight(navBarFrame) + CGRectGetMinY(navBarFrame);
+        }
+        
         [UIView animateWithDuration:.25 animations:^{
-            offlineStatus.center = CGPointMake(self.view.center.x, offlineStatus.center.y + _topBar.bounds.size.height);
+            offlineStatus.center = CGPointMake(self.view.center.x, offlineStatus.center.y + height);
         }];
     }
 }
@@ -293,7 +329,7 @@ static int chatInputStartingHeight = 40;
     UILabel * offlineStatus = (UILabel *)[self.view viewWithTag:connectionStatusViewTag];
     if (offlineStatus != nil) {
         [UIView animateWithDuration:.25 animations:^{
-            offlineStatus.center = CGPointMake(self.view.center.x, offlineStatus.center.y - _topBar.bounds.size.height);
+            offlineStatus.center = CGPointMake(self.view.center.x, offlineStatus.center.y - (CGRectGetHeight(offlineStatus.frame) + 10));
         } completion:^(BOOL finished) {
             if (finished) {
                 [offlineStatus removeFromSuperview];
@@ -305,6 +341,11 @@ static int chatInputStartingHeight = 40;
 #pragma mark COLLECTION VIEW METHODS
 
 - (void) scrollToBottom {
+    
+    if (_isNavigationControllerVersion) {
+        _myCollectionView.contentInset = UIEdgeInsetsZero;
+    }
+    
     if (_messagesArray.count > 0) {
         static NSInteger section = 0;
         NSInteger item = [self collectionView:_myCollectionView numberOfItemsInSection:section] - 1;
@@ -312,6 +353,7 @@ static int chatInputStartingHeight = 40;
         NSIndexPath *lastIndexPath = [NSIndexPath indexPathForItem:item inSection:section];
         [_myCollectionView scrollToItemAtIndexPath:lastIndexPath atScrollPosition:UICollectionViewScrollPositionBottom animated:YES];
     }
+    
 }
 
 /* Scroll To Top
@@ -432,14 +474,25 @@ static int chatInputStartingHeight = 40;
 }
 
 - (void) setChatTitle:(NSString *)chatTitle{
-    _topBar.title = chatTitle;
+    
+    if (!_isNavigationControllerVersion) {
+        _topBar.title = chatTitle;
+    }
+    else {
+        self.title = chatTitle;
+    }
+    
     _chatTitle = chatTitle;
+    
 }
 
 - (void) setTintColor:(UIColor *)tintColor {
     _chatInput.sendBtnActiveColor = tintColor;
     _topBar.tintColor = tintColor;
     _tintColor = tintColor;
+    if (_isNavigationControllerVersion) {
+        NSLog(@"ChatController: If pushing via navigation controller, nav bar customization must be done separately");
+    }
 }
 
 @end
